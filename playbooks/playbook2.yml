@@ -1,0 +1,72 @@
+- name: LAB 1.5 - Install webserver,  configure firewall and verify webserver availability
+  hosts: all
+  become: yes
+  vars:
+    service: 
+     - httpd
+     - firewalld
+
+  tasks:
+   - name: install service {{ service }}
+     package:
+       name: "{{ item }}"
+       state: latest
+     register: install_service_result
+     with_items: "{{ service }}"
+
+   #- name: output from installation
+    # debug:
+     # msg: "{{ install_service_result }}"
+
+   - block:
+      - name: start and enable {{ service }}    
+        service:
+         name: "{{ item }}"
+         state: started
+         enabled: true
+        with_items: "{{ service }}"
+
+      - name: configure firewall
+        firewalld:
+         service: http
+         permanent: true
+         immediate: true
+         state: enabled
+        register: configure_firewall_result
+
+      - name: restart firewalld
+        service: 
+         name: "{{ item }}"
+         state: restarted
+        with_items: "{{ service }}"
+        when: item == "firewalld" and configure_firewall_result.changed
+
+      - name: setup index page
+        copy:
+         content: "Welcome to the Ansible managed web server"
+         dest: /var/www/html/index.html
+
+     when: install_service_result.changed
+
+
+- name: verify webserver status
+  hosts: localhost
+  become: false
+  
+  tasks:
+   - name: fetching webserver status
+     uri:
+      url: http://{{ item }}
+      #status_code: 200
+     ignore_errors: yes
+     register: webserver_status_result
+     with_items:
+      - ansible-worker1
+      - ansible-worker2
+      - ansible-worker3
+
+   - name: webserver status
+     debug:
+      msg:  "{% for i in webserver_status_result.results %} {% if i.status==200 %} Webserver on {{ i.item }} is Operational {% else %} Webserver on {{ i.item }} is Dead {% endif %}  {% endfor %}"
+  tags:
+   - check_web
