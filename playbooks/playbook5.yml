@@ -1,0 +1,30 @@
+- name: undo lab4.1 and lab4.2
+  import_playbook: undo.yml
+
+- name: LAB 4.2 - create users, groups and assign groups
+  hosts: all
+  become: yes
+  vars:
+   myusers:
+    - linda
+    - anna
+   mygroups:
+    - students
+    - profs
+  
+  tasks:
+ 
+   - name: create groups
+     group:
+      name: "{{ item }}"
+      state: present 
+     with_items: "{{ mygroups }}"
+         
+   - name: creating user and assigning group
+     user:
+      name: "{{ item[0] }}"
+      state: present
+      groups: "{{ item[1] }}"
+     with_nested: 
+      - "{{ myusers }}"
+      - "{{ mygroups }}"

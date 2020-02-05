@@ -1,0 +1,22 @@
+- name: LAB 4.1 - create users, groups and assign groups
+  hosts: all
+  become: yes
+  vars:
+   users:
+    - { name: 'linda', groups: 'students'}
+    - { name: 'anna', groups: 'profs'}
+  
+  tasks:
+  
+   - name: create groups
+     group:
+      name: "{{ item.groups }}"
+      state: present
+     with_items: "{{ users }}"
+         
+   - name: create users and assign groups
+     user:
+      name: "{{ item.name }}"
+      state: present
+      groups: "{{ item.groups }}"
+     with_items: "{{ users }}"
