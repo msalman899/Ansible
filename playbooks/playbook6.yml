@@ -1,0 +1,25 @@
+- name: undo lab4.3
+  hosts: all
+  become: true 
+
+  tasks:
+   - name: undo lab4.3
+     package:
+      name: vsftpd
+      state: absent
+
+
+- name: LAB 4.3 - install vsftpd if sufficient space is available on /var/ftp
+  hosts: all
+  become: true
+  vars: 
+   service: vsftpd
+  
+  tasks:
+
+   - name: installing {{ service }}
+     package:
+      name: "{{ service }}"
+      state: latest
+     with_items: "{{ ansible_mounts }}"
+     when: item.mount == "/home" and item.size_available > 100000000
