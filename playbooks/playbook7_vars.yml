@@ -1,0 +1,6 @@
+service:
+ - httpd
+ - vsftpd
+ - firewalld
+ - "{% if ansible_hostname == 'ansible-worker3' %} mysql {% else %} mariadb {% endif %}"
+

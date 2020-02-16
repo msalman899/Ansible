@@ -1,0 +1,55 @@
+- name: LAB 4 final - install webserver, vsftpd, mariadb (mysql for worker3) and write a msg when installation is successful
+  hosts: all
+  become: yes
+  ignore_errors: yes
+  vars_files: 
+   - playbook7_vars.yml
+
+  tasks:
+
+   - name: undo lab4.final
+     package:
+      name: "{{ item }}"
+      state: absent
+     when:  item != "httpd"
+     with_items: "{{ service }}"
+
+   - name: install service
+     package:
+      name: "{{ item }}"
+      state: latest
+     register: install_service_result
+     with_items: "{{ service }}"
+     notify:
+      - success
+
+   - block:
+      - name: start and enable service
+        service:
+         name: "{{ item }}"
+         state: started
+         enabled: true
+        with_items: "{{ service }}"
+
+      - name: configure firewall
+        firewalld:
+         service: "{% if item=='httpd' %}http{%else%}{{ item }}{%endif%}"
+         permanent: true
+         immediate: true
+         state: enabled
+        with_items: "[{% for i in install_service_result.results %} {{ i.item.split() }}, {% endfor %}]"
+        #when: item != "firewalld"
+        notify: 
+         - restart firewalld
+     
+     when: install_service_result.changed
+         
+  handlers:
+    - name: restart firewalld
+      service:
+       name: firewalld
+       state: restarted
+
+    - name: success
+      debug:
+         msg: "package installation on {{ ansible_hostname }} is successful"
