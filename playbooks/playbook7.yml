@@ -2,8 +2,9 @@
   hosts: all
   become: yes
   ignore_errors: yes
+  force_handlers: yes
   vars_files: 
-   - playbook7_vars.yml
+   - lab4.final_vars.yml
 
   tasks:
 
@@ -33,12 +34,12 @@
 
       - name: configure firewall
         firewalld:
-         service: "{% if item=='httpd' %}http{%else%}{{ item }}{%endif%}"
+         service: "{% if item=='httpd' %}http{% elif item=='vsftpd' %}ftp{% elif item=='mariadb' %}mysql{%else%}{{ item }}{%endif%}"
          permanent: true
          immediate: true
          state: enabled
         with_items: "[{% for i in install_service_result.results %} {{ i.item.split() }}, {% endfor %}]"
-        #when: item != "firewalld"
+        when: item != "firewalld"
         notify: 
          - restart firewalld
      
