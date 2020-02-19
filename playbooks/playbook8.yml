@@ -1,0 +1,8 @@
+- name: LAB 5 final - use ansible galaxy's role to install docker
+  hosts: ansible-worker3
+  become: yes
+  ignore_errors: yes
+
+  roles:
+   - geerlingguy.docker
+  
