@@ -1,0 +1,10 @@
+#create/edit/view  encrypted file
+ansible-vault create/edit/view lab6.final_vars_enc.yml #have to provide password
+ansible-vault create/edit/view --vault-password-file=lab6.final_vaultpw lab6.final_vars_enc.yml #no need to provide pass
+
+##encrypt and decrypt existing file
+ansible-vault encrypt/decrypt lab6.final_vars_enc.yml --output=filename                            
+ansible-vault encrypt/decrypt --vault-password-file=lab6.final_vaultpw lab6.final_vars_enc.yml  --output=filename 
+#
+##Execution
+ansible-playbook --vault-password-file=lab6.final_vaultpw lab6.final.yml

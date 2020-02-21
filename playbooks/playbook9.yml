@@ -1,0 +1,15 @@
+- name: LAB 6 final - using ansible vault, create a playbook that create users.
+  hosts: ansible-worker1
+  become: yes
+  ignore_errors: yes
+  vars_files:
+   - lab6.final_vars_enc.yml
+
+  tasks:
+
+   - name: creating users
+     user:
+      name: "{{ item.name }}"
+      state: present
+      password: "{{ item.pw | password_hash('sha512') }}"
+     with_items: "{{ userstocreate }}"
