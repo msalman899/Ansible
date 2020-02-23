@@ -1,0 +1,54 @@
+- name: LAB 7 final - playbook to test ansible optimization modules / tasks
+  hosts: worker1-2
+  become: yes
+  ignore_errors: true
+  #gather_facts: false
+
+  tasks:
+
+   - name: adding delegate host
+     add_host:
+      name: proxy-host
+      ansible_host: ansible-worker3
+      ansible_user: ansible-user2
+
+   - name: updating config on delegate host
+     delegate_to: proxy-host
+     shell: /bin/sleep 5
+     async: 10 #in seconds
+     poll: 2 #ansible will poll every 10 seconds to see if the command has completed
+     register: echo_from_proxy
+ 
+   - name: download large file
+     shell: /bin/sleep 10
+     async: 60
+     poll: 0
+     register: dwn_large_file
+
+   - name: waiting for download completion
+     async_status: 
+      jid: "{{ dwn_large_file.ansible_job_id }}"
+     register: job_result
+     until: job_result.finished
+     retries: 10
+     delay: 2
+ 
+   - name: restarting servers
+     shell: sleep 2 && shutdown -r now "rebooting please wait"
+     #async: 1
+     #poll: 0
+     register: restarting_servers
+     
+   - name: waiting for servers to come back
+     delegate_to: localhost
+     wait_for: 
+      host: "{{ inventory_hostname }}"
+      state: started
+      delay: 10 #in seconds
+      timeout: 300
+      port: 22
+
+  #- debug:
+  #   msg: 
+  #    - "{{ dwn_large_file }}"
+  #    - "{{ job_result  }}"
