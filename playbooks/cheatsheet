@@ -1,0 +1,26 @@
+
+-- playbook 10
+
+[ansible-user@ansible-master training]$ ansible 'ansible-worker1' -i my-inventory --list-hosts
+  hosts (1):
+    ansible-worker1
+[ansible-user@ansible-master training]$ ansible 'ansible-worker*' -i my-inventory --list-hosts
+  hosts (3):
+    ansible-worker2
+    ansible-worker3
+    ansible-worker1
+[ansible-user@ansible-master training]$ ansible all -i my-inventory --list-hosts
+  hosts (3):
+    ansible-worker1
+    ansible-worker2
+    ansible-worker3
+[ansible-user@ansible-master training]$
+[ansible-user@ansible-master training]$ ansible 'worker3,*worker2' -i /home/ansible-user/training/my-inventory --list-hosts
+  hosts (2):
+    ansible-worker3
+    ansible-worker2
+[ansible-user@ansible-master training]$ ansible '*worker2' -i /home/ansible-user/training/my-inventory -m ping
+ansible-worker2 | SUCCESS => {
+    "changed": false,
+    "ping": "pong"
+}
