@@ -1,11 +1,12 @@
 - name: testing of purge
   hosts: localhost
   vars:
-   window: 300
+   window: 1 #in hour
    #start_time: "{{ansible_date_time.iso8601_basic_short}}"
    start_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
    end_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch | int + 600) }}"
    #current_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
+   iter_end: "{{ (window  * 60 / 2) | int}}"
 
   tasks:
    - name: generating client list
@@ -23,7 +24,7 @@
    - include_tasks: invoke_purge.yml
      #loop: "{{ range(0,6,1) }}"
      #register: result
-     with_sequence: 1-2
+     with_sequence: 1-1-{{ iter_end }}
 
    - name: Waiting for last iteration to complete
      command: echo "Waiting for last iteration to complete"
