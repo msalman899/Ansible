@@ -1,0 +1,13 @@
+
+
+- name: checking if any client finished purge - iteration {{ item }}
+  command: echo "A C D"
+  register: finished_purge_client
+
+- name: kicking Off Purge for client
+  command: echo "setting up new client list"
+  with_items: " {{ finished_purge_client.stdout.split() }}"
+
+- name: waiting for 10 seconds
+  command: sleep 10
+
