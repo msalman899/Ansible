@@ -1,0 +1,32 @@
+- name: testing of purge
+  hosts: localhost
+  vars:
+   window: 300
+   #start_time: "{{ansible_date_time.iso8601_basic_short}}"
+   start_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
+   end_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch | int + 600) }}"
+   #current_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
+
+  tasks:
+   - name: generating client list
+     shell: echo "A B C D"
+     register: client_list
+
+#   - debug:
+#      var: client_list
+
+   - name: setting up directory
+     command: echo "cp -r cli cli"
+     with_items: "{{ client_list.stdout.split() }}"
+    #  new_counter: "{{ counter | length }} +1"
+
+   - include_tasks: invoke_purge.yml
+     #loop: "{{ range(0,6,1) }}"
+     #register: result
+     with_sequence: 1-2
+
+   - name: Waiting for last iteration to complete
+     command: echo "Waiting for last iteration to complete"
+
+   - name: cleaning up directory
+     command: echo "rm -rf cli_auto"
