@@ -1,0 +1,5 @@
+- name: Waiting for last iteration to complete
+  command: echo "Waiting for last iteration to complete"
+
+- name: cleaning up directory
+  command: echo "rm -rf cli_auto"
