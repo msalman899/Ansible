@@ -1,12 +1,49 @@
-
-
-- name: checking if any client finished purge - iteration {{ item }}
-  command: echo "A C D"
+- name: checking if any client finished purge - iteration {{ iteration }}
+  #shell: is_running=$(ps aux | grep {{item}}.sh | wc -l); if [ $is_running -lt 3 ]; then echo {{ item }}; fi
+  shell: ps aux | grep {{item}}.sh
   register: finished_purge_client
+  with_items: "{{ client.stdout.split() }}"
+
+#- debug:
+#   var: finished_purge_client
+
+- name: filter client if no runs to delete
+  command: echo {{ item.item }}
+  register: finished_runs_client
+  when: item.stdout_lines | length  < 3
+  loop: "{{ finished_purge_client.results }} "
+  loop_control:
+   label: "{{ item.item }}"
 
 - name: kicking Off Purge for client
-  command: echo "setting up new client list"
-  with_items: " {{ finished_purge_client.stdout.split() }}"
+  command: echo "kicking off purge"
+  #with_items: "{{ finished_purge_client.stdout.split() | difference(finished_runs_client.stdout.split()) }}"
+  when: item.changed
+  loop: "{{ finished_runs_client.results }} "
+  loop_control:
+   label: "{{ item.stdout | default('N/A') }}"
+
+- debug:
+   msg: "Kicking off purge for client {{ item.stdout | default('No') }} - iteration {{ iteration }}"
+  when: item.changed
+  loop: "{{ finished_runs_client.results }} "
+  loop_control:
+   label: "{{ item.stdout | default('N/A') }}"
+
+#- name: set retry if window is left
+#  set_fact:
+#   current_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
+   #new_counter: "{{ counter | length }} +1"
+   #counter: "{{ counter}} + [ {{ new_counter}} ]"
+   #ansible_loop.last: true
+   #when: current_time < end_time
+- block:
+   - debug:
+      msg: "No runs left to be purged for all provided clients, thus exiting job"
+   - include_tasks: post_purge.yml
+   - meta: end_play
+
+  when: iteration | int == 50
 
 - name: waiting for 10 seconds
   command: sleep 10
