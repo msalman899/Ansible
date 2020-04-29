@@ -1,33 +1,37 @@
 - name: testing of purge
   hosts: localhost
+  force_handlers: yes
   vars:
-   window: 1 #in hour
-   #start_time: "{{ansible_date_time.iso8601_basic_short}}"
+   window: 0.1
    start_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
    end_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch | int + 600) }}"
-   #current_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
    iter_end: "{{ (window  * 60 / 2) | int}}"
 
   tasks:
+  
    - name: generating client list
      shell: echo "A B C D"
-     register: client_list
+     register: client
 
-#   - debug:
-#      var: client_list
+   - block:
+      - debug:
+         msg: "No client list found, thus existing job"
 
-   - name: setting up directory
-     command: echo "cp -r cli cli"
-     with_items: "{{ client_list.stdout.split() }}"
-    #  new_counter: "{{ counter | length }} +1"
+      - meta: end_play
+     when: (client.stdout is not defined) or (client.stdout |length == 0)
 
+   - debug:
+        #var: client_list
+      var: iter_end
+   - debug:
+      var: client.stdout
+      
    - include_tasks: invoke_purge.yml
-     #loop: "{{ range(0,6,1) }}"
      #register: result
-     with_sequence: 1-1-{{ iter_end }}
+     loop: "{{ range(1, (iter_end)|int + 1  ,1) | list}}"
+     loop_control:
+    #     pause: 5
+      loop_var: iteration
 
-   - name: Waiting for last iteration to complete
-     command: echo "Waiting for last iteration to complete"
+   - include_tasks: post_purge.yml
 
-   - name: cleaning up directory
-     command: echo "rm -rf cli_auto"
