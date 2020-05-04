@@ -1,31 +1,76 @@
-- name: testing of purge
+- name: Data purge
   hosts: localhost
   force_handlers: yes
   vars:
    window: 0.1
-   start_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
-   end_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch | int + 600) }}"
+   dbuser: 
+   dbpass:
+   #start_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
+   #end_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch | int + 600) }}"
    iter_end: "{{ (window  * 60 / 2) | int}}"
 
   tasks:
-  
-   - name: generating client list
-     shell: echo "A B C D"
+
+   - name: Generating Client list
+     shell: |
+            source profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@orcl <<EOF
+            SET pagesize 0
+            SET HEAD OFF
+            SET VERIFY OFF
+            SET trimspool on
+            SET LIN 200
+
+            select environment from client_list;
+            exit;
+            EOF
      register: client
+
+   - name: Fetching Client policy
+     shell: |
+            source profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@orcl <<EOF
+            SET pagesize 0
+            SET HEAD OFF
+            SET VERIFY OFF
+            SET trimspool on
+            SET LIN 200
+
+            select environment,policy from client_list where policy is not null;
+            exit;
+            EOF
+     register: client_policy
+     #
 
    - block:
       - debug:
          msg: "No client list found, thus existing job"
 
       - meta: end_play
-     when: (client.stdout is not defined) or (client.stdout |length == 0)
+     when: (client.stdout_lines is not defined) or (client.stdout_lines |length == 0)
+
 
    - debug:
-        #var: client_list
-      var: iter_end
-   - debug:
-      var: client.stdout
-      
+      msg: " Total iterations - {{ iter_end }}"
+ #  - debug:
+      #msg: "client list..."
+      #var: "{{ client.stdout_lines.split()[0] }}"
+  #    msg: "{{ ','.join(client.stdout_lines.split()[0 }}"
+
+
+   - name: Mark isdelete flag based on client policy
+     shell:  |
+            source profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@orcl <<EOF
+            SET pagesize 0
+            SET HEAD OFF
+            SET VERIFY OFF
+            SET trimspool on
+            SET LIN 200
+
+            select '{{item.split()[0]}}' as environment, '{{ item.split()[1] }}' as policy from dual;
+            exit;
+            EOF
+     loop: "{{ client_policy.stdout_lines }}"
+
+
    - include_tasks: invoke_purge.yml
      #register: result
      loop: "{{ range(1, (iter_end)|int + 1  ,1) | list}}"
@@ -34,4 +79,3 @@
       loop_var: iteration
 
    - include_tasks: post_purge.yml
-
