@@ -1,4 +1,10 @@
 ##############
+Misc
+##############
+
+end_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch | int + 600) }}"
+
+##############
 Ansible Vault
 ##############
 
