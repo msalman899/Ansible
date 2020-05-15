@@ -1,9 +1,6 @@
 - name: Waiting for last iteration to complete
-  shell: ps aux | grep "_p.sh"
+  shell: ps aux | grep "sh"
   register: last_iter
   until: last_iter.stdout_lines | length  < 3
-  retries: 12
+  retries: 10
   delay: 300
-
-- name: cleaning up directory
-  command: echo "cleanup cli_auto"
