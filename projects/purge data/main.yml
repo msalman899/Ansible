@@ -1,47 +1,48 @@
-- name: Data purge
-  hosts: localhost
+- name: Data Purge
+  hosts: "{{ host }}"
   force_handlers: yes
   vars:
-   window: 0.1
-   dbuser: 
    dbpass:
-   #start_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
-   #end_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch | int + 600) }}"
-   iter_end: "{{ (window  * 60 / 2) | int}}"
+   dbsid: 
+   window:
+   data_to_delete:
+   src_dir: /some/dir
+   job_id: "{{ '%Y%m%d_%H%M%S' | strftime(ansible_date_time.epoch) }}"
+   iter_end: "{{ (window * 60 / 15) | int}}"
 
   tasks:
 
-   - name: Generating Client list
+   - name: Generating list
      shell: |
-            source profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@orcl <<EOF
+            source ~/.profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@{{ dbsid }} <<EOF
             SET pagesize 0
             SET HEAD OFF
             SET VERIFY OFF
             SET trimspool on
             SET LIN 200
 
-            select environment from client_list;
+            select name from table;
             exit;
             EOF
      register: client
 
-   - name: Fetching Client policy
+   - name: Fetching policy
      shell: |
-            source profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@orcl <<EOF
+            source ~/profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@{{ dbsid }} <<EOF
             SET pagesize 0
             SET HEAD OFF
             SET VERIFY OFF
             SET trimspool on
             SET LIN 200
 
-            select environment,policy from client_list where policy is not null;
+            select name,policy from table where policy is not null;
             exit;
             EOF
      register: client_policy
-     #
 
    - block:
-      - debug:
+      - name: Exit if No client list found
+        debug:
          msg: "No client list found, thus existing job"
 
       - meta: end_play
@@ -50,32 +51,55 @@
 
    - debug:
       msg: " Total iterations - {{ iter_end }}"
- #  - debug:
-      #msg: "client list..."
-      #var: "{{ client.stdout_lines.split()[0] }}"
-  #    msg: "{{ ','.join(client.stdout_lines.split()[0 }}"
 
 
-   - name: Mark isdelete flag based on client policy
-     shell:  |
-            source profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@orcl <<EOF
+   - name: Mark flag
+     shell: |
+            source ~/profile; sqlplus -s {{ item[1] }}_{{ item[0].split()[0] }}/{{ dbpass }}@{{ dbsid }} <<EOF
             SET pagesize 0
             SET HEAD OFF
             SET VERIFY OFF
             SET trimspool on
             SET LIN 200
 
-            select '{{item.split()[0]}}' as environment, '{{ item.split()[1] }}' as policy from dual;
+            {% if item[1] == 'XYZ' %} select count(1), '{{ item[0].split()[1] }}' as policy from table1;
+            {% else %} select count(1), '{{ item[0].split()[1] }}' as policy from table2;
+            {%endif%}
             exit;
             EOF
-     loop: "{{ client_policy.stdout_lines }}"
+     loop: "{{ client_policy.stdout_lines |product(['ABC','XYZ']) | list }}"
+
+   - name: Cleaning up directory
+     shell: 
+     register: res
+     args:
+       chdir: "{{ src_dir }}"
+       warn: false
+
+   - name: Creating working directory
+     file:
+      path: "{{src_dir}}/work_folder"
+      state: directory
+
+
+   - name: Copying data to working directory
+     shell: |
+     args:
+       chdir: "{{ src_dir }}"
+       warn: false
+
+
+   - name: Preparing file
+     shell: |
+     args:
+       chdir: "{{src_dir}}/work_folder"
+       warn: false
+     loop: "{{ client.stdout_lines }}"
 
 
    - include_tasks: invoke_purge.yml
-     #register: result
      loop: "{{ range(1, (iter_end)|int + 1  ,1) | list}}"
      loop_control:
-    #     pause: 5
       loop_var: iteration
 
    - include_tasks: post_purge.yml
