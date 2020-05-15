@@ -1,5 +1,4 @@
-- name: checking if any client finished purge - iteration {{ iteration }}
-  #shell: is_running=$(ps aux | grep {{item}}.sh | wc -l); if [ $is_running -lt 3 ]; then echo {{ item }}; fi
+- name: Checking if any client finished purge - iteration {{ iteration }}
   shell: ps aux | grep {{item}}.sh
   register: finished_purge_client
   loop: "{{ client.stdout_lines }}"
@@ -7,63 +6,55 @@
 #- debug:
 #   var: finished_purge_client
 
-- name: filter client if no data to delete
+- name: Checking if data are available to be purged
   shell: |
-         source profile; sqlplus -s {{ dbuser }}/{{ dbpass }}@orcl <<EOF
+         source ~/profile; sqlplus -s {{ item.item }}/{{ dbpass }}@{{ dbsid }} <<EOF
          SET pagesize 0
          SET HEAD OFF
          SET VERIFY OFF
          SET trimspool on
          SET LIN 200
 
-         select (case when count > 0 then 'Data Available' else 'No Data' end) as status from (select count(*) as count from table);
+         select (case when count > 0 then 'data Available' else 'No data' end) as status from (select count(*) as count from table);
          exit;
          EOF
-  #command: echo {{ item.item }}
   register: finished_runs_client
-  when: item.stdout_lines | length  < 3
   loop: "{{ finished_purge_client.results }} "
   loop_control:
    label: "{{ item.item }}"
 
-#- debug:
-#   var: finished_runs_client
+- name: Status
+  debug:
+   msg: "[{% for i in finished_runs_client.results %}
+         {{i.item.item }}: ({{i.stdout}}, {% if i.item.stdout_lines | length  < 3 %} Purge Finished {% else %} Purge InProgress {% endif %}),
+         {% endfor %}]"
 
-- name: kicking Off Purge for client
-  command: echo "kicking off purge"
-  #with_items: "{{ finished_purge_client.stdout.split() | difference(finished_runs_client.stdout.split()) }}"
-  #when: item.changed
-  when: (item.stdout is defined) and (item.stdout == "Data Available")
+- name: Kicking Off Purge
+  shell: echo > {{ src_dir }}/work_dir/{{ item.item.item }}_{{ job_id }}_{{iteration}}.log &
+  args:
+   chdir: "{{ src_dir }}/work_dir/{{ item.item.item }}/"
+  when: (item.stdout is defined) and (item.stdout == "data Available") and (item.item.stdout_lines | length  < 3)
   loop: "{{ finished_runs_client.results }} "
   loop_control:
-   #label: "{{ item.stdout | default('N/A') }}"
    label: "{{ item.item.item }}"
 
 - debug:
-   msg: "Kicking off purge for client {{ item.item.item }} - iteration {{ iteration }}"
-  when: (item.stdout is defined) and (item.stdout == "Data Available")
+   msg: "Kicking off purge {{ item.item.item }} - iteration {{ iteration }} - JobId {{ job_id }}"
+  when: (item.stdout is defined) and (item.stdout == "data Available") and (item.item.stdout_lines | length  < 3)
   loop: "{{ finished_runs_client.results }} "
   loop_control:
    label: "{{ item.item.item }}"
 
-#- name: set retry if window is left
-#  set_fact:
-#   current_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime(ansible_date_time.epoch) }}"
-   #new_counter: "{{ counter | length }} +1"
-   #counter: "{{ counter}} + [ {{ new_counter}} ]"
-   #ansible_loop.last: true
-   #when: current_time < end_time
-
-
 #- debug:
-#   msg: "{{ finished_runs_client.results | map(attribute='stdout') | list}}"
+#   msg: "{{ finished_runs_client.results }}"
 
 - block:
-   - debug:
-      msg: "No data left to be purged for all provided clients, thus exiting job"
+   - name: Break loop if no data left
+     debug:
+      msg: "No data left to be purged, thus exiting job"
    - include_tasks: post_purge.yml
    - meta: end_play
-  when: "'Data Available' not in finished_runs_client.results | map(attribute='stdout') | list"
+  when: "'data Available' not in finished_runs_client.results | map(attribute='stdout') | select('defined') | list"
 
-- name: waiting for 10 seconds
-  command: sleep 10
+- name: Waiting for 15 minutes
+  command: sleep 15m
