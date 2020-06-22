@@ -24,10 +24,13 @@
    label: "{{ item.item }}"
 
 - name: Status
+  vars:
+    msg: |
+         {% for i in finished_runs_client.results %}
+         {{i.item.item }}: ({{i.stdout}}, {% if i.item.stdout_lines | length  < 3 %} Purge Finished {% else %} Purge InProgress {% endif %})
+         {% endfor %}
   debug:
-   msg: "[{% for i in finished_runs_client.results %}
-         {{i.item.item }}: ({{i.stdout}}, {% if i.item.stdout_lines | length  < 3 %} Purge Finished {% else %} Purge InProgress {% endif %}),
-         {% endfor %}]"
+   msg: "{{ msg.split('\n') }}"
 
 - name: Kicking Off Purge
   shell: echo > {{ src_dir }}/work_dir/{{ item.item.item }}_{{ job_id }}_{{iteration}}.log &
@@ -54,7 +57,7 @@
       msg: "No data left to be purged, thus exiting job"
    - include_tasks: post_purge.yml
    - meta: end_play
-  when: "'data Available' not in finished_runs_client.results | map(attribute='stdout') | select('defined') | list"
+  when: "'data Available' not in finished_runs_client.results | map(attribute='stdout') | select('defined') | map('regex_replace','data Available - .*','data Available') | list"
 
 - name: Waiting for 15 minutes
   command: sleep 15m
