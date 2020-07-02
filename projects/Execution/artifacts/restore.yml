@@ -1,0 +1,7 @@
+- include_role:
+   name: restore
+  vars:
+   infra: 
+   tables_restore_list:
+      - { source_schema: "", source_table: "", bkp_table: "", restore_sql: "", where_clause: ""}
+      - { source_schema: "", source_table: "", bkp_table: "", restore_sql: "" }
