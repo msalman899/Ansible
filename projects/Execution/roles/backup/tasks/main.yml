@@ -1,1 +1,46 @@
-s
+- debug:
+   msg: "No Input parameter provided"
+  when: tables_list is not defined
+
+- block:
+  - name: Print Table Backup SQLs
+    vars:
+     msg: |
+          "{% for i in tables_list %}
+          create table {{bkupdbuser}}.{{i.bkp_table}} as select * from {{i.org_table}} {{i.where_clause | default()}};
+          grant select on {{bkupdbuser}}.{{i.bkp_table}} to {{i.org_table.split('.')[0]}};
+          {% endfor %}"
+    debug:
+     msg: "{{ msg.split('\n') }}"
+
+
+  - name: "Taking Backup (Backup Schema: {{bkupdbuser}})"
+    delegate_to: "{{bkuphost}}"
+    shell: |
+            source ~/.profile; sqlplus -s {{bkupdbuser}}/{{dbpass}}@{{dbsid}} <<EOF
+            create table {{item.bkp_table}} as select * from {{item.org_table}} {{item.where_clause | default()}};
+            grant select on {{item.bkp_table}} to {{item.org_table.split('.')[0]}};
+            exit;
+            EOF
+    loop: "{{ tables_list }}"
+
+  - name: Fetching Table Counts
+    delegate_to: "{{bkuphost}}"
+    shell: |
+            source ~/.profile; sqlplus -s {{bkupdbuser}}/{{dbpass}}@{{dbsid}} <<EOF
+            select '{{item.bkp_table}}' as tblname,count(*) from {{item.bkp_table}} union all select '{{item.org_table}}' as tblname,count(*)
+            from {{item.org_table}} {{item.where_clause | default()}};
+
+            exit;
+            EOF
+    register: backup_table_count
+    loop: "{{ tables_list }}"
+
+  - name: Printing Backup Table Counts
+    debug:
+     msg: "{% for i in backup_table_count.results %}
+           {{ i.stdout.split('\n') | regex_replace('\t','') }}
+           {% endfor %}"
+
+  when: tables_list is defined
+
