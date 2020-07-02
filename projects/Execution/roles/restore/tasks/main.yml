@@ -1,1 +1,49 @@
-s
+- debug:
+   msg: "No Input parameter provided"
+  when: tables_restore_list is not defined
+
+- block:
+   - name: Print Table Restore SQLs
+     vars:
+      msg: |
+           "{% for i in tables_restore_list %}
+           {{i.restore_sql}};
+           {% endfor %}"     
+     debug:
+      msg: "{{ msg.split('\n') }}"
+
+
+   - name: Reverting Tables
+     delegate_to: "{{bkuphost}}"
+     shell: |
+            source ~/.profile; sqlplus -s {{item.source_schema}}/{{ dbpass }}@{{ dbsid }} <<EOF
+            {{ item.restore_sql }};
+
+            exit;
+            EOF
+     loop: "{{ tables_restore_list }}"
+     loop_control:
+      label: "Backup Table: {{ item.bkp_table}} , Source Table: {{ item.source_table}}, Source Schema: {{ item.source_schema }}"
+
+   - name: Fetching Table Counts Post Restore
+     delegate_to: "{{bkuphost}}"
+     shell: |
+            source ~/.profile; sqlplus -s {{bkupdbuser}}/{{ dbpass }}@{{ dbsid }} <<EOF
+            select '{{ item.bkp_table }}' as tblname,count(*) from {{ item.bkp_table }} union all
+            select '{{ item.source_table }}' as tblname,count(*) from {{item.source_schema}}.{{item.source_table}} {{item.where_clause | default()}};
+            exit;
+            EOF
+     register: post_restore_counts
+     loop: "{{ tables_restore_list }}"
+     loop_control:
+      label: "Backup Table: {{ item.bkp_table}} , Source Table: {{ item.source_table}}, Source Schema: {{ item.source_schema }}"
+
+
+   - name: Print Table Counts Post Restore (Count should match)
+     debug:
+      msg: "{% for i in post_restore_counts.results %}
+           {{ i.stdout.split('\n') | regex_replace('\t','') }}
+           {% endfor %}"
+  
+  when: tables_restore_list is defined
+
