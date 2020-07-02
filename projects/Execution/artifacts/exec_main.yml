@@ -1,0 +1,13 @@
+- include_role:
+   name: backup
+  vars:
+   infra: 
+   tables_list:
+      - { org_table: "", bkp_table: "", whre_clause: ""}
+      - { org_table: "", bkp_table: "" }
+
+- name: Copying Stored Procedure to remote machine
+  template:
+   src: procedure.sql
+   dest: /tmp/procedure.sql
+   force: yes
