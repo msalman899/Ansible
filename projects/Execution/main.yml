@@ -1,1 +1,64 @@
-s
+- name: Execution
+  hosts: localhost
+  vars_files:
+   - artifacts/vars.yml
+
+  tasks:
+
+   - debug:
+      msg: "[START] Execution"
+
+   - name: Sending Start Notification
+     mail:
+      host: 
+      port: 
+      from:
+      to: "{% if recipient_list is defined %}{{ recipient_list }}
+          {% else %}admin@xyz.com{% endif %}"
+      subject: "[START] Execution"
+     delegate_to: localhost
+
+   - block:
+      - include_tasks: artifacts/main.yml
+
+     rescue:
+      - set_fact:
+         is_fail: true
+
+     always:
+
+      - block:
+         - include_tasks: artifacts/restore.yml
+
+        rescue:
+         - set_fact:
+            is_fail: true
+            is_restore_fail: true
+
+        always:
+         - debug:
+            msg: "{% if is_fail is defined and is_fail %}[FAIL]{% else %}[SUCCESS]{% endif %} - Execution"
+
+         - name: Getting Job Logs
+           ignore_errors: yes
+           delegate_to: localhost
+           uri:
+            url: http://ansible-host:port/api/v2/jobs/{{awx_job_id}}/stdout/?format=txt_download
+            user: "{{ username }}"
+            password: "{{ password }}"
+            method: GET
+            force_basic_auth: yes
+            dest: "{{log_file}}"
+
+         - name: Sending Success/Fail  Notification
+           mail:
+            host: 
+            port: 
+            from: 
+            to: "{% if recipient_list is defined %}{{ recipient_list }}
+                {% else %}admin@xyz.com{% endif %}"
+            subject: "{% if is_fail is defined and is_fail %}[FAIL]{% else %}[SUCCESS]{% endif %} - Execution"
+            body: "{% if is_restore_fail is defined and is_restore_fail %}please check logs{% endif %}"
+            attach: "{{log_file}}"
+           delegate_to: localhost
+
