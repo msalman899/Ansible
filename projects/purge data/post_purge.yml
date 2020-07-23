@@ -4,3 +4,38 @@
   until: last_iter.stdout_lines | length  < 3
   retries: 10
   delay: 300
+
+- name: Printing Purge Report
+  vars:
+   msg: |
+         {% for i in post_runs_count.results %}
+         {% if i.item.stdout|int != 0 %}
+         {{ i.item.item }} - Runs purged {{ i.item.stdout |int - i.stdout |int }} Out of {{ i.item.stdout |int}}
+         {% else %}
+         {{ i.item.item }} - No Runs were available
+         {% endif %}
+         {% endfor %}
+  debug:
+   msg: "{{ msg.split('\n') }}"
+
+   
+- name: Sending Purge Report
+  mail:
+   host: 
+   port: 
+   from: 
+   to: "{% if recipient_list is defined %}{{ recipient_list }},abc@abc.com
+          {% else %}abc@abc.com{% endif %}"
+   subject: "{% if host | regex_search('prod') %}Prod -
+             {% elif host | regex_search('sandbox')%}Sandbox -
+             {% elif host | regex_search('pat')%}Pat -
+             {% else %}{%endif%} Purge Report"
+   body: |
+           {% for i in post_runs_count.results %}
+           {% if i.item.stdout|int != 0 %}
+           - {{ i.item.item }} - Runs purged {{ i.item.stdout |int - i.stdout |int }} Out of {{ i.item.stdout |int}}
+           {% else %}
+           - {{ i.item.item }} - No Runs were available
+           {% endif %}
+           {% endfor %}
+  delegate_to: localhost
